@@ -30,15 +30,14 @@ interface Evidence {
     isTrueEvidence: boolean;
 }
 
-// ⭐ [수정됨] 백엔드에서 이름 목록만 제공하므로, 인터페이스를 이름(name) 기반으로 단순화합니다.
+// ⭐
 interface Suspect {
-    name: string; // 용의자 닉네임 (case_suspect 테이블의 suspect_name)
-    description?: string; // (선택사항) 설명은 임의로 표시하거나 제거할 수 있습니다.
+    name: string; // 용의자 닉네임
+    description?: string; // 설명은 임의로 표시하거나 제거
 }
 
-export function InvestigationModal({ caseData, onClose, onComplete }: InvestigationModalProps) {
+export function InvestigationModal({ caseData, detectiveId, onClose, onComplete }: InvestigationModalProps) {
     const [evidence, setEvidence] = useState<Evidence[]>([]);
-    // const [culpritName, setCulpritName] = useState(''); // 이제 사용하지 않음
     const [suspects, setSuspects] = useState<Suspect[]>([]); // 용의자 목록
     const [selectedSuspect, setSelectedSuspect] = useState('');
     const [reasoning, setReasoning] = useState('');
@@ -46,7 +45,7 @@ export function InvestigationModal({ caseData, onClose, onComplete }: Investigat
 
     useEffect(() => {
         fetchCaseDetails();
-    }, [caseData.caseId, caseData.suspects]); // caseData.suspects가 변경될 때도 fetch를 재실행하도록 의존성 배열에 추가
+    }, [caseData.caseId, caseData.suspects]);
 
     const fetchCaseDetails = async () => {
         try {
@@ -87,20 +86,28 @@ export function InvestigationModal({ caseData, onClose, onComplete }: Investigat
         console.log("Submitting guess:", selectedSuspect, "with reasoning:", reasoning);
 
         try {
-            // 1. API 호출
-            const response = await apiClient.patch(`/cases/${caseData.caseId}/submit-guess`, {
+            // ⭐ 백엔드에 정의된 경로와 HTTP 메서드
+            const response = await apiClient.post(`/cases/detective/guess/${caseData.caseId}`, {
+                detectiveId: detectiveId,
                 culpritGuessNickname: selectedSuspect,
-                reasoning,
-                status: '추리 완료'
+                reasoning: reasoning, 
             });
             
             console.log("Guess submitted successfully:", response.data);
             toast.success(`'${selectedSuspect}'를 범인으로 추리 제출했습니다.`);
 
-            // ⭐ 1. 모달 닫기 전에 제출 상태를 먼저 해제합니다.
+            // ⭐ 백엔드에서 반환된 결과
+            const resultData = response.data;
+            if (resultData.isSolved) {
+                toast.success(`사건 해결 성공! 👍 (+${resultData.detectiveScoreChange}점)`);
+            } else {
+                toast.error(`사건 해결 실패 😢 진짜 범인은 ${resultData.actualCulpritNickname}입니다.`);
+            }
+
+            // ⭐ 1. 제출 상태를 먼저 해제
             setIsSubmitting(false); 
 
-            // ⭐ 2. 상태 해제 후, 모달을 닫도록 요청합니다.
+            // ⭐ 2. 상태 해제 후, 모달을 닫도록 요청
             onComplete(); 
             
         } catch (error) {

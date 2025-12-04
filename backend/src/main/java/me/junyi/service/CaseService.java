@@ -1,11 +1,7 @@
 package me.junyi.service;
 
 import me.junyi.domain.*;
-import me.junyi.dto.AvailableCaseDto;
-import me.junyi.dto.CaseClientDto;
-import me.junyi.dto.CaseDetectiveDto;
-import me.junyi.dto.MyCaseDto;
-import me.junyi.dto.PendingCaseDto;
+import me.junyi.dto.*;
 import me.junyi.repository.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -106,6 +102,11 @@ public class CaseService {
         // 4) 사건 상태 업데이트 → 조작 완료 시에만 변경
         CaseInfo caseInfo = caseInfoRepository.findById(caseId).orElseThrow();
         caseInfo.setStatus("조작");
+
+        if (caseInfo.getTrueCriminalId() == null) {
+            caseInfo.setTrueCriminalId(criminalId); // 범인을 true_criminal_id에 할당
+            caseInfoRepository.save(caseInfo); // 변경사항 저장
+        }
         return caseInfoRepository.save(caseInfo);
     }
 
@@ -595,69 +596,58 @@ public class CaseService {
      */
     @Transactional
     public Map<String, Object> handleDetectiveGuessAndCheckResult(Long caseId, Long detectiveId, String culpritGuessNickname) {
-
-        // 1. 필요한 정보 조회
+        // 필요한 정보 조회
         CaseParticipation participation = participationRepository.findByCaseId(caseId)
                 .orElseThrow(() -> new IllegalArgumentException("참여 레코드를 찾을 수 없습니다."));
         CaseInfo caseInfo = caseInfoRepository.findById(caseId)
                 .orElseThrow(() -> new IllegalArgumentException("사건 정보를 찾을 수 없습니다."));
 
-        // 2. 탐정이 추측한 닉네임을 user_id로 변환
+        // 탐정이 추측한 닉네임을 user_id로 변환
         AppUser guessedUser = appUserRepository.findByNickname(culpritGuessNickname)
                 .orElseThrow(() -> new IllegalArgumentException("추측한 용의자 닉네임을 찾을 수 없습니다."));
 
         Long detectiveGuessId = guessedUser.getUserId();
 
-        // 3. 사건 해결 여부 판단
+        // 사건 해결 여부 판단
         boolean isSolved = false;
         if (caseInfo.getTrueCriminalId() != null) {
-            // CaseInfo의 trueCriminalId와 탐정의 추측 ID를 비교
             isSolved = caseInfo.getTrueCriminalId().equals(detectiveGuessId);
         }
 
-        // 4. CaseParticipation 업데이트: 추측 기록 및 해결 여부 결정
+        // CaseParticipation 업데이트
         participation.setDetectiveGuessId(detectiveGuessId);
-        participation.setIsSolved(isSolved); // 해결 여부 기록
+        participation.setIsSolved(isSolved);
         participationRepository.save(participation);
 
-        // 5. 점수 계산 및 부여
+        // 점수 계산 및 부여
         int detectiveScoreChange = 0;
         int criminalScoreChange = 0;
-
-        // 난이도에 따른 기본 점수 (예: 난이도 * 10점)
         int baseScore = caseInfo.getDifficulty() * 10;
 
         if (isSolved) {
-            // 해결 성공: 탐정에게 점수 부여
             detectiveScoreChange = baseScore;
-            // 범인에게는 감점 (선택적) 또는 점수 변동 없음
             criminalScoreChange = 0;
         } else {
-            // 해결 실패: 범인에게 점수 부여 (경찰/탐정의 실패는 범인의 성공)
             criminalScoreChange = baseScore;
-            // 탐정에게는 감점 (선택적) 또는 점수 변동 없음
             detectiveScoreChange = 0;
         }
 
-        // 6. 점수 업데이트 및 로그 기록
+        // 점수 업데이트 및 로그 기록
         updateUserScore(detectiveId, detectiveScoreChange, caseId,
                 isSolved ? "탐정: 사건 해결 성공" : "탐정: 사건 해결 실패");
 
-        // 범인이 참여했다면 범인 점수도 업데이트
         if (participation.getCriminalId() != null) {
             updateUserScore(participation.getCriminalId(), criminalScoreChange, caseId,
                     isSolved ? "범인: 사건 해결됨" : "범인: 탐정 추리 실패");
         }
 
-        // 7. CaseInfo 상태 업데이트: '결과 확인'
+        // CaseInfo 상태 업데이트
         caseInfo.setStatus("결과 확인");
         caseInfoRepository.save(caseInfo);
 
-        // 8. 프론트엔드로 반환할 결과 Map 구성
         // 실제 범인 닉네임 조회
         String actualCulpritNickname = appUserRepository.findById(caseInfo.getTrueCriminalId())
                 .map(AppUser::getNickname).orElse("알 수 없음");
-
 
         return Map.of(
                 "isSolved", isSolved,
@@ -667,4 +657,5 @@ public class CaseService {
                 "newStatus", "결과 확인"
         );
     }
+
 }

@@ -201,6 +201,10 @@ public class CaseController {
         Long detectiveId = ((Number) request.get("detectiveId")).longValue();
         String culpritGuessNickname = (String) request.get("culpritGuessNickname"); // 프론트에서 받은 추측 닉네임
 
+        // ✨ 디버깅
+        System.out.println("DEBUG: Detective ID: " + detectiveId);
+        System.out.println("DEBUG: Guess Nickname: " + culpritGuessNickname);
+
         if (culpritGuessNickname == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "추리할 용의자 닉네임이 필요합니다."));
         }
@@ -216,6 +220,10 @@ public class CaseController {
             return ResponseEntity.ok(result);
 
         } catch (Exception e) {
+            // 💡 이 부분을 수정하여 예외를 콘솔에 출력해야 합니다!
+            e.printStackTrace(); // <-- 이 코드를 추가하거나 활성화하세요.
+            System.err.println("CRITICAL ERROR: " + e.getMessage()); // 추가 로그
+
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "추리 처리 중 오류: " + e.getMessage()));
         }

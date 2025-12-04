@@ -35,28 +35,47 @@ interface AssignedCase {
 }
 
 export function DetectiveDashboard({ user, onLogout, onShowRanking }: DetectiveDashboardProps) {
-    const [assignedCases, setAssignedCases] = useState<AssignedCase[]>([]);
+    // ⭐ assignedCases를 activeCases와 completedCases로 분리
+    const [activeCases, setActiveCases] = useState<AssignedCase[]>([]); 
+    const [completedCases, setCompletedCases] = useState<AssignedCase[]>([]);
+
     const [selectedCase, setSelectedCase] = useState<AssignedCase | null>(null);
     const [viewResultCase, setViewResultCase] = useState<AssignedCase | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // 🚨 API 호출 함수 (user.id 기반으로 조회)
-    const fetchAssignedCases = useCallback(async () => {
-        setLoading(true);
+    // 🚨 1. 진행 중인 사건 목록 조회 (STATUS='배정'인 사건)
+    const fetchActiveCases = useCallback(async () => {
         try {
-            // GET /api/cases/detective/{userId} API 호출
             const response = await apiClient.get<AssignedCase[]>(`/cases/detective/${user.id}`);
-            setAssignedCases(response.data);
+            setActiveCases(response.data); // ⭐ activeCases에 저장
         } catch (err: any) {
-            toast.error("배정된 사건 목록을 불러오지 못했습니다.");
-        } finally {
-            setLoading(false);
+            toast.error("진행 중인 사건 목록을 불러오지 못했습니다.");
         }
     }, [user.id]);
 
+    // 🚨 2. 완료된 사건 목록 조회 (STATUS='결과 확인'인 사건)
+    const fetchCompletedCases = useCallback(async () => {
+        try {
+            // GET /api/cases/detective/result/{userId} 호출
+            const response = await apiClient.get<AssignedCase[]>(`/cases/detective/result/${user.id}`);
+            setCompletedCases(response.data); // ⭐ completedCases에 저장
+        } catch (err: any) {
+            toast.error("완료된 사건 목록을 불러오지 못했습니다.");
+        }
+    }, [user.id]);
+
+    // ⭐ 3. 두 API를 동시에 호출하는 통합 함수
+    const fetchAllCases = useCallback(async () => {
+        setLoading(true);
+        // 두 비동기 호출을 병렬로 처리
+        await Promise.all([fetchActiveCases(), fetchCompletedCases()]); 
+        setLoading(false);
+    }, [fetchActiveCases, fetchCompletedCases]);
+
+
     useEffect(() => {
-        fetchAssignedCases();
-    }, [fetchAssignedCases]);
+        fetchAllCases();
+    }, [fetchAllCases]);
 
     const handleInvestigate = (caseItem: AssignedCase) => {
         setSelectedCase(caseItem);
@@ -64,7 +83,8 @@ export function DetectiveDashboard({ user, onLogout, onShowRanking }: DetectiveD
 
     const handleInvestigationComplete = () => {
         setSelectedCase(null);
-        fetchAssignedCases(); // 추리 제출 후 목록 갱신
+        // ⭐ 추리 제출 완료 시 두 목록 모두 갱신 요청
+        fetchAllCases(); 
     };
 
     const getDifficultyStars = (difficulty: number) => {
@@ -126,13 +146,13 @@ export function DetectiveDashboard({ user, onLogout, onShowRanking }: DetectiveD
                     <h2 className="text-white mb-4">진행 중인 사건 (STATUS: 배정)</h2>
                     {loading && <Card className="p-12 text-center text-purple-500 flex items-center justify-center gap-2"><Loader2 className="animate-spin size-5" /> 사건 목록 로딩 중...</Card>}
                     
-                    {!loading && assignedCases.filter(c => c.status === '배정').length === 0 ? (
+                    {!loading && activeCases.length === 0 ? ( // ⭐ activeCases 사용
                         <Card className="p-12 text-center">
                             <p className="text-muted-foreground">진행 중인 사건이 없습니다</p>
                         </Card>
                     ) : (
                         <div className="grid grid-cols-1 gap-4">
-                            {assignedCases
+                            {activeCases
                                 .filter(c => c.status === '배정')
                                 .map((caseItem) => (
                                     <Card key={caseItem.activeId} className="p-6 hover:shadow-lg transition-shadow border-2 border-purple-500">
@@ -170,13 +190,13 @@ export function DetectiveDashboard({ user, onLogout, onShowRanking }: DetectiveD
                 {/* Completed Cases */}
                 <div>
                     <h2 className="text-white mb-4">완료된 사건 (STATUS: 결과 확인)</h2>
-                    {!loading && assignedCases.filter(c => c.status === '결과 확인').length === 0 ? (
+                    {!loading && completedCases.length === 0 ? ( // ⭐ completedCases 사용
                         <Card className="p-12 text-center">
                             <p className="text-muted-foreground">완료된 사건이 없습니다</p>
                         </Card>
                     ) : (
                         <div className="grid grid-cols-1 gap-4">
-                            {assignedCases
+                            {completedCases
                                 .filter(c => c.status === '결과 확인')
                                 .map((caseItem) => (
                                     <Card key={caseItem.activeId} className="p-6">
