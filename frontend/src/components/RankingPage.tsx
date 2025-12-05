@@ -15,7 +15,7 @@ interface RankingPageProps {
 
 // --- 타입 정의 시작 ---
 
-// 1. 백엔드 DTO (API 응답 데이터 구조)
+// 1. RankingDto
 interface RankingDto {
     userId: number; 
     nickname: string;
@@ -29,10 +29,6 @@ interface RankingDto {
 interface RankedUser extends RankingDto {
     rank: number; // 프론트엔드에서 계산되어 추가되는 순위
 }
-
-// --- 타입 정의 끝 ---
-
-// --- RankingTable 컴포넌트 (가독성을 위해 외부로 분리) ---
 
 const getRankIcon = (rank: number) => {
     if (rank === 1) return <Trophy className="size-6 text-yellow-500" />;
