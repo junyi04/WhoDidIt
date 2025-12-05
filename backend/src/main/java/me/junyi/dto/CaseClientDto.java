@@ -31,4 +31,5 @@ public class CaseClientDto {
     // 6. 탐정 추리 결과 정보
     private String culpritGuess;   // 탐정의 추리 닉네임
     private String actualCulprit;  // 실제 범인 닉네임
+
 }

@@ -21,4 +21,6 @@ public class CaseParticipation {
 
     private Long detectiveGuessId;
     private Boolean isSolved;
+
+    private String detectiveGuessNickname;
 }

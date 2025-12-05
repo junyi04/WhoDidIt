@@ -1,42 +1,47 @@
 package me.junyi.controller;
 
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ranking")
 public class RankingController {
-
     private final JdbcTemplate jdbcTemplate;
+
+    @Value("classpath:sql/ranking_detectives.sql")
+    private Resource rankingDetectivesSqlFile;
+    private String rankingDetectivesSql;
 
     public RankingController(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    // 🚨 탐정 목록 조회 (탐정 랭킹)
+    @PostConstruct
+    public void loadSqlFile() {
+        try {
+            this.rankingDetectivesSql = StreamUtils.copyToString(
+                    rankingDetectivesSqlFile.getInputStream(),
+                    StandardCharsets.UTF_8
+            ).trim();
+        } catch (IOException e) {
+            throw new RuntimeException("랭킹 SQL 파일을 로드하는 데 실패했습니다.", e);
+        }
+    }
+
+    // 탐정 목록 조회 (탐정 랭킹)
     @GetMapping("/detectives")
     public List<Map<String, Object>> getDetectives() {
 
-        String sql = """
-            SELECT 
-                u.user_id AS "userId",
-                u.nickname AS "nickname",
-                u.score AS "score",
-                COUNT(p.part_id) AS "totalCases",
-                COALESCE(
-                    AVG(CASE WHEN p.is_solved = TRUE THEN 1 ELSE 0 END) * 100,
-                    0
-                ) AS "successRate"
-            FROM app_user u
-            LEFT JOIN case_participation p
-                ON u.user_id = p.detective_id
-            WHERE u.role = '탐정'
-            GROUP BY u.user_id, u.nickname, u.score
-            ORDER BY u.score DESC;
-        """;
+        String sql = this.rankingDetectivesSql;
 
         List<Map<String, Object>> list = jdbcTemplate.queryForList(sql);
 

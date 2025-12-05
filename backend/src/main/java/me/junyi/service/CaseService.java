@@ -1,11 +1,18 @@
 package me.junyi.service;
 
+import jakarta.annotation.PostConstruct;
+import org.springframework.core.io.Resource;
 import me.junyi.domain.*;
 import me.junyi.dto.*;
 import me.junyi.repository.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StreamUtils;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map; // Map 추가
 import java.util.Objects;
@@ -25,7 +32,16 @@ public class CaseService {
     private final AppUserRepository appUserRepository;
     private final JdbcTemplate jdbcTemplate; // Native Query를 위한 JdbcTemplate
 
-    // 🚨 생성자 문법 수정 및 모든 필드 주입
+
+    // ⭐⭐ 1. SQL 파일을 주입받을 필드 추가
+    @Value("classpath:sql/available_cases.sql")
+    private Resource availableCasesSqlFile;
+
+    // ⭐⭐ 2. SQL 내용을 저장할 필드 추가
+    private String availableCasesSql;
+
+
+    // 생성자 문법 수정 및 모든 필드 주입
     public CaseService(CaseInfoRepository caseInfoRepository, CaseParticipationRepository participationRepository,
                        OriginalEvidenceRepository originalEvidenceRepository, SubmittedEvidenceRepository submittedEvidenceRepository,
                        AppUserRepository appUserRepository, JdbcTemplate jdbcTemplate, ScoreLogRepository scoreLogRepository, CaseSuspectRepository caseSuspectRepository) {
@@ -37,7 +53,21 @@ public class CaseService {
         this.appUserRepository = appUserRepository;
         this.jdbcTemplate = jdbcTemplate;
         this.scoreLogRepository = scoreLogRepository;
-    } // 🚨 닫는 중괄호 추가!
+    }
+
+
+    // ⭐⭐ 3. 애플리케이션 시작 시점에 SQL 파일을 로드하는 메서드 추가
+    @PostConstruct
+    public void loadSqlFile() {
+        try {
+            this.availableCasesSql = StreamUtils.copyToString(
+                    availableCasesSqlFile.getInputStream(),
+                    StandardCharsets.UTF_8
+            ).trim();
+        } catch (IOException e) {
+            throw new RuntimeException("SQL 파일을 로드하는 데 실패했습니다: " + availableCasesSqlFile.getFilename(), e);
+        }
+    }
 
 
     /** 1. 사건 목록 조회 (STATUS='등록') */
@@ -230,10 +260,7 @@ public class CaseService {
                             .clientNickname(clientNickname)
                             .policeNickname(policeNickname)
                             .status(info.getStatus())
-                            .culpritGuess(p.getDetectiveGuessId() != null ?
-                                    appUserRepository.findById(p.getDetectiveGuessId())
-                                            .map(AppUser::getNickname).orElse("미정")
-                                    : null)
+                            .culpritGuess(p.getDetectiveGuessNickname())
                             .result(p.getIsSolved() != null ?
                                     (p.getIsSolved() ? "감사" : "부고") : null)
                             .actualCulprit(appUserRepository.findById(info.getTrueCriminalId())
@@ -268,10 +295,6 @@ public class CaseService {
                         String detectiveNickname = (p.getDetectiveId() != null) ?
                                 appUserRepository.findById(p.getDetectiveId()).map(AppUser::getNickname).orElse("미배정") : "미배정";
 
-                        // ⭐ 탐정 추리 닉네임 조회
-                        String culpritGuessNickname = (p.getDetectiveGuessId() != null) ?
-                                appUserRepository.findById(p.getDetectiveGuessId()).map(AppUser::getNickname).orElse(null) : null;
-
                         // ⭐실제 범인 닉네임 조회 (CaseInfo에서 trueCriminalId 사용)
                         String actualCulpritNickname = (info.getTrueCriminalId() != null) ?
                                 appUserRepository.findById(info.getTrueCriminalId()).map(AppUser::getNickname).orElse(null) : null;
@@ -285,7 +308,7 @@ public class CaseService {
                                 .detectiveNickname(detectiveNickname)
                                 .status(status)
                                 .result(result)
-                                .culpritGuess(culpritGuessNickname) // ⭐
+                                .culpritGuess(p.getDetectiveGuessNickname()) // ⭐
                                 .actualCulprit(actualCulpritNickname) // ⭐
                                 .build();
                     }).orElse(null);
@@ -348,20 +371,7 @@ public class CaseService {
     /** 8. 범인 - 조작 참여 가능 사건 조회 (STATUS='등록') */
     public List<AvailableCaseDto> getAvailableCasesForCulprit() {
 
-        String sql = """
-        SELECT 
-            cp.part_id AS active_id,
-            c.case_id,
-            c.title,
-            c.content,
-            c.difficulty,
-            u.nickname AS client_nickname
-        FROM case_participation cp
-        JOIN case_info c ON cp.case_id = c.case_id
-        JOIN app_user u ON cp.client_id = u.user_id
-        WHERE c.status = '등록'
-        AND cp.criminal_id IS NULL
-        """;
+        String sql = this.availableCasesSql;
 
         return jdbcTemplate.query(sql, (rs, rowNum) ->
                 AvailableCaseDto.builder()
@@ -625,7 +635,10 @@ public class CaseService {
         // CaseParticipation 업데이트
         participation.setDetectiveGuessId(detectiveGuessId);
         participation.setIsSolved(isSolved);
+        participation.setDetectiveGuessNickname(culpritGuessNickname);
+
         participationRepository.save(participation);
+
 
         // 점수 계산 및 부여
         int detectiveScoreChange = 0;
