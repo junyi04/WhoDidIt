@@ -6,8 +6,8 @@ import { LogOut, FileText, Trophy, CheckCircle, XCircle, Clock, Loader2 } from '
 import type { User } from '../App';
 import { CaseSelectionModal } from './CaseSelectionModal';
 import { CaseResultModal } from './CaseResultModal';
-import axios from 'axios'; // 🚨 axios import 추가
-import { toast } from 'sonner'; // 🚨 toast import 추가
+import axios from 'axios';
+import { toast } from 'sonner';
 
 const apiClient = axios.create({ baseURL: '/api', withCredentials: true });
 
@@ -17,17 +17,17 @@ interface ClientDashboardProps {
     onShowRanking: () => void;
 }
 
-// 🚨 ActiveCase 인터페이스 수정 (DTO에 맞춰 카멜 케이스로 통일)
+// CaseClinetDTO 구조와 같게
 interface ActiveCase {
-    caseId: number; // case_id는 없지만 CaseClientDto에는 caseId가 있으므로 추가
-    activeId: number; // active_id -> activeId
-    caseTitle: string; // case_title -> caseTitle
-    caseDescription: string; // case_description -> caseDescription
+    caseId: number;
+    activeId: number;
+    caseTitle: string;
+    caseDescription: string;
     status: string;
-    result: '감사' | '부고' | null; // 결과 타입 명시
-    detectiveNickname: string | null; // detective_nickname -> detectiveNickname
-    culpritGuess: string | null; // culprit_guess -> culpritGuess
-    actualCulprit: string | null; // actual_culprit -> actualCulprit
+    result: '감사' | '부고' | null;
+    detectiveNickname: string | null;
+    culpritGuess: string | null;
+    actualCulprit: string | null;
     difficulty: number;
 }
 
@@ -36,8 +36,8 @@ export function ClientDashboard({ user, onLogout, onShowRanking }: ClientDashboa
     const [myCases, setMyCases] = useState<ActiveCase[]>([]);
     const [showCaseSelection, setShowCaseSelection] = useState(false);
     const [selectedCaseResult, setSelectedCaseResult] = useState<ActiveCase | null>(null);
-    const [loading, setLoading] = useState(true); // 🚨 로딩 상태 추가
-    const [error, setError] = useState<string | null>(null); // 🚨 에러 상태 추가
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     // 🚨 1. API 호출 함수로 변경 및 useCallback 적용
     const fetchMyCases = useCallback(async () => {

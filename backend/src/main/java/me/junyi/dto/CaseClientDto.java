@@ -27,4 +27,8 @@ public class CaseClientDto {
     // 5. 사건 진행 상태 및 결과
     private String status;         // '등록', '조작', '배정', '추리 완료', '결과 확인'
     private String result;         // '감사' (해결) 또는 '부고' (미해결)
+
+    // 6. 탐정 추리 결과 정보
+    private String culpritGuess;   // 탐정의 추리 닉네임
+    private String actualCulprit;  // 실제 범인 닉네임
 }

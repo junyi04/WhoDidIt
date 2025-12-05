@@ -4,7 +4,7 @@ import { Badge } from './ui/badge';
 import { X, CheckCircle, XCircle, Heart, Flower2, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
-// 🚨 1. Props 인터페이스 필드 수정: detectiveNickname의 '?' 제거
+// 1. Props 인터페이스 필드
 interface CaseResultModalProps {
     caseData: {
         activeId: number;
@@ -14,23 +14,23 @@ interface CaseResultModalProps {
         culpritGuess: string | null;
         actualCulprit: string | null;
         result: string | null;
-        detectiveNickname: string | null; // 🚨 수정 완료: Optional (?) 제거
+        detectiveNickname: string | null;
         difficulty: number;
-        // NOTE: activeId가 CaseResultModal의 DTO에 포함되어 있다면 여기에 추가해야 함
     };
     userRole: 'client' | 'detective';
     onClose: () => void;
 }
 
 export function CaseResultModal({ caseData, userRole, onClose }: CaseResultModalProps) {
-    // 🚨 2. 변수 사용처 수정 (isSuccess, isSolved)
     const isSuccess = caseData.result === '감사';
     const isSolved = caseData.culpritGuess === caseData.actualCulprit;
 
+    // ⭐
+    const isGuessed = caseData.culpritGuess !== null;
+    const isCorrectGuess = isGuessed && caseData.culpritGuess === caseData.actualCulprit;
+
     const handleSendMessage = () => {
-        // TODO: Replace with your actual API endpoint for sending messages
-        // toast 메시지로 변경하여 알림 기능 대체
-        toast.info(isSuccess ? '✅ 감사 인사를 전송했습니다!' : '💐 국화꽃을 보냈습니다...');
+        toast.info(isSuccess ? '감사 인사를 전송했습니다!' : '💐 국화꽃을 보냈습니다...');
     };
 
     const getDifficultyStars = (difficulty: number) => {
@@ -39,8 +39,8 @@ export function CaseResultModal({ caseData, userRole, onClose }: CaseResultModal
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <Card className="w-full max-w-2xl">
-                <div className="bg-gradient-to-r from-slate-700 to-slate-800 p-6 rounded-t-lg">
+            <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col">
+                <div className="bg-gradient-to-r from-slate-700 to-slate-800 p-6 rounded-t-lg flex-shrink-0">
                     <div className="flex justify-between items-start">
                         <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
@@ -57,7 +57,7 @@ export function CaseResultModal({ caseData, userRole, onClose }: CaseResultModal
                     </div>
                 </div>
 
-                <div className="p-6 space-y-6">
+                <div className="p-6 space-y-6 flex-grow overflow-y-auto">
                     {/* Result Banner (isSuccess 변수 사용 유지) */}
                     <Card className={`p-6 ${isSuccess ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                         <div className="flex items-center gap-4">
@@ -92,15 +92,16 @@ export function CaseResultModal({ caseData, userRole, onClose }: CaseResultModal
                             {/* caseData 필드명 사용처 수정 */}
                             <p className="text-muted-foreground text-sm">{caseData.caseDescription}</p>
                         </div>
-
+    
                         <div className="grid grid-cols-2 gap-4">
                             <Card className="p-4">
                                 <div className="text-sm text-muted-foreground mb-1">탐정의 추리</div>
                                 <div className="flex items-center gap-2">
-                                    <Badge variant={isSolved ? 'default' : 'destructive'}>
-                                        {/* caseData 필드명 사용처 수정 */}
+                                    <Badge variant={isCorrectGuess ? 'default' : (isGuessed ? 'destructive' : 'secondary')}>
                                         {caseData.culpritGuess || '미제출'}
                                     </Badge>
+                                    {isCorrectGuess && <CheckCircle className="size-4 text-green-500" />}
+                                    {!isCorrectGuess && isGuessed && <XCircle className="size-4 text-red-500" />}
                                 </div>
                             </Card>
 
@@ -196,7 +197,7 @@ export function CaseResultModal({ caseData, userRole, onClose }: CaseResultModal
                     )}
                 </div>
 
-                <div className="border-t p-6 flex justify-end">
+                <div className="border-t p-6 flex justify-end flex-shrink-0">
                     <Button onClick={onClose}>닫기</Button>
                 </div>
             </Card>

@@ -268,6 +268,14 @@ public class CaseService {
                         String detectiveNickname = (p.getDetectiveId() != null) ?
                                 appUserRepository.findById(p.getDetectiveId()).map(AppUser::getNickname).orElse("미배정") : "미배정";
 
+                        // ⭐ 탐정 추리 닉네임 조회
+                        String culpritGuessNickname = (p.getDetectiveGuessId() != null) ?
+                                appUserRepository.findById(p.getDetectiveGuessId()).map(AppUser::getNickname).orElse(null) : null;
+
+                        // ⭐실제 범인 닉네임 조회 (CaseInfo에서 trueCriminalId 사용)
+                        String actualCulpritNickname = (info.getTrueCriminalId() != null) ?
+                                appUserRepository.findById(info.getTrueCriminalId()).map(AppUser::getNickname).orElse(null) : null;
+
                         return CaseClientDto.builder()
                                 .caseId(info.getCaseId())
                                 .activeId(p.getPartId()) // 활성화된 참여 정보 ID (프론트엔드 key)
@@ -277,6 +285,8 @@ public class CaseService {
                                 .detectiveNickname(detectiveNickname)
                                 .status(status)
                                 .result(result)
+                                .culpritGuess(culpritGuessNickname) // ⭐
+                                .actualCulprit(actualCulpritNickname) // ⭐
                                 .build();
                     }).orElse(null);
                 })
@@ -603,14 +613,12 @@ public class CaseService {
                 .orElseThrow(() -> new IllegalArgumentException("사건 정보를 찾을 수 없습니다."));
 
         // 탐정이 추측한 닉네임을 user_id로 변환
-        AppUser guessedUser = appUserRepository.findByNickname(culpritGuessNickname)
-                .orElseThrow(() -> new IllegalArgumentException("추측한 용의자 닉네임을 찾을 수 없습니다."));
-
-        Long detectiveGuessId = guessedUser.getUserId();
+        Optional<AppUser> guessedUserOpt = appUserRepository.findByNickname(culpritGuessNickname);
+        Long detectiveGuessId = guessedUserOpt.map(AppUser::getUserId).orElse(null);
 
         // 사건 해결 여부 판단
         boolean isSolved = false;
-        if (caseInfo.getTrueCriminalId() != null) {
+        if (caseInfo.getTrueCriminalId() != null && detectiveGuessId != null) {
             isSolved = caseInfo.getTrueCriminalId().equals(detectiveGuessId);
         }
 
@@ -653,7 +661,8 @@ public class CaseService {
                 "isSolved", isSolved,
                 "detectiveScoreChange", detectiveScoreChange,
                 "criminalScoreChange", criminalScoreChange,
-                "actualCulpritNickname", actualCulpritNickname,
+                "culpritGuess", culpritGuessNickname,
+                "actualCulprit", actualCulpritNickname,
                 "newStatus", "결과 확인"
         );
     }
