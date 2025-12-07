@@ -5,6 +5,7 @@ import { Badge } from './ui/badge';
 import { LogOut, Shield, Trophy, Loader2 } from 'lucide-react';
 import type { User } from '../App';
 import { DetectiveAssignModal } from './DetectiveAssignModal';
+import { CaseResultModal } from './CaseResultModal';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -30,10 +31,22 @@ interface PendingCase {
     detectiveId: number | null; // 이미 배정한 경우 대비
 }
 
+interface ResultCase{
+    activeId: number;
+    caseId: number;
+    caseTitle: string; 
+    caseDescription: string;
+    culpritGuess: string | null;
+    actualCulprit: string | null;
+    result: string | null;
+    detectiveNickname: string | null;
+    difficulty: number;
+}
 
 export function PoliceDashboard({ user, onLogout, onShowRanking }: PoliceDashboardProps) {
     const [pendingCases, setPendingCases] = useState<PendingCase[]>([]);
     const [selectedCase, setSelectedCase] = useState<PendingCase | null>(null);
+    const [viewResultCase, setViewResultCase] = useState<ResultCase | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [myCases, setMyCases] = useState<PendingCase[]>([]);
@@ -106,6 +119,16 @@ export function PoliceDashboard({ user, onLogout, onShowRanking }: PoliceDashboa
             toast.error("내가 맡은 사건을 불러오지 못했습니다.");
         }
     }, [user.id]);
+
+    // 🚨 결과 확인 API 호출
+    const fetchCaseResult = async (caseId: number) => {
+        try {
+            const response = await apiClient.get<ResultCase>(`/cases/result/${caseId}`);
+            setViewResultCase(response.data);
+        } catch (err: any) {
+            toast.error("결과를 불러오는 데 실패했습니다.");
+        }
+    };
 
     useEffect(() => {
         fetchPendingCases();
@@ -245,15 +268,26 @@ export function PoliceDashboard({ user, onLogout, onShowRanking }: PoliceDashboa
                                             </div>
                                         </div>
 
-                                        {/* 상태가 '접수중'이면 탐정 배정 버튼 활성화 */}
-                                        {caseItem.status === '접수중' && (
-                                            <Button
-                                                onClick={() => setSelectedCase(caseItem)}
-                                                className="bg-blue-500 hover:bg-blue-600"
-                                            >
-                                                탐정 배정
-                                            </Button>
-                                        )}
+                                        <div className="flex flex-col gap-2">
+                                            {/* 상태가 '접수중'이면 탐정 배정 버튼 활성화 */}
+                                            {caseItem.status === '접수중' && (
+                                                <Button
+                                                    onClick={() => setSelectedCase(caseItem)}
+                                                    className="bg-blue-500 hover:bg-blue-600"
+                                                >
+                                                    탐정 배정
+                                                </Button>
+                                            )}
+                                            {/* 상태가 '결과 확인'이면 결과 확인 버튼 활성화 */}
+                                            {caseItem.status === '결과 확인' && (
+                                                <Button
+                                                    onClick={() => fetchCaseResult(caseItem.caseId)}
+                                                    variant="outline"
+                                                >
+                                                    결과 확인
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
                                 </Card>
                             ))}
@@ -273,6 +307,15 @@ export function PoliceDashboard({ user, onLogout, onShowRanking }: PoliceDashboa
                         fetchPendingCases();     // 목록 갱신
                         fetchMyCases(); 
                     }}
+                />
+            )}
+
+            {/* 결과 확인 모달 */}
+            {viewResultCase && (
+                <CaseResultModal
+                    caseData={viewResultCase}
+                    userRole="police"
+                    onClose={() => setViewResultCase(null)}
                 />
             )}
         </div>

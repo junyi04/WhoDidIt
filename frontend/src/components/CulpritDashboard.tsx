@@ -5,6 +5,7 @@ import { Badge } from './ui/badge'; // 🚨 경로 수정
 import { LogOut, UserX, Trophy, AlertTriangle, Loader2, Save } from 'lucide-react';
 import type { User } from '../App';
 import { FakeEvidenceModal } from './FakeEvidenceModal'; // 🚨 경로 수정
+import { CaseResultModal } from './CaseResultModal';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -33,6 +34,18 @@ interface MyCase extends CaseDetails {
     fakeEvidenceSelected: boolean; // fake_evidence_selected -> fakeEvidenceSelected
 }
 
+interface CaseResult {
+    activeId: number;
+    caseId: number;
+    caseTitle: string;
+    caseDescription: string;
+    culpritGuess: string | null;
+    actualCulprit: string | null;
+    result: string | null;
+    detectiveNickname: string | null;
+    difficulty: number;
+}
+
 
 export function CulpritDashboard({ user, onLogout, onShowRanking }: CulpritDashboardProps) {
     const [availableCases, setAvailableCases] = useState<AvailableCase[]>([]);
@@ -40,6 +53,7 @@ export function CulpritDashboard({ user, onLogout, onShowRanking }: CulpritDashb
     const [loadingAvailable, setLoadingAvailable] = useState(true);
     const [loadingMy, setLoadingMy] = useState(true);
     const [selectedCase, setSelectedCase] = useState<CaseDetails | null>(null); // CaseDetails 사용
+    const [viewResultCase, setViewResultCase] = useState<CaseResult | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     // 🚨 1. 참여 가능한 사건 목록 조회 (STATUS='등록', CRIMINAL_ID is NULL)
@@ -94,6 +108,16 @@ export function CulpritDashboard({ user, onLogout, onShowRanking }: CulpritDashb
         fetchAvailableCases();
 
         fetchMyCases(); // 🚨 조작 완료 후 '내가 참여한 사건' 목록 갱신
+    };
+
+    // 🚨 결과 확인 API 호출
+    const fetchCaseResult = async (caseId: number) => {
+        try {
+            const response = await apiClient.get<CaseResult>(`/cases/result/${caseId}`);
+            setViewResultCase(response.data);
+        } catch (err: any) {
+            toast.error("결과를 불러오는 데 실패했습니다.");
+        }
     };
 
     const getDifficultyStars = (difficulty: number) => {
@@ -249,6 +273,16 @@ export function CulpritDashboard({ user, onLogout, onShowRanking }: CulpritDashb
                                                     탐정 조사 중
                                                 </Badge>
                                             )}
+
+                                            {/* Case 4: 결과 확인 상태 */}
+                                            {caseItem.status === '결과 확인' && (
+                                                <Button
+                                                    onClick={() => fetchCaseResult(caseItem.caseId)}
+                                                    variant="outline"
+                                                >
+                                                    결과 확인
+                                                </Button>
+                                            )}
                                         </div>
                                     </div>
                                 </Card>
@@ -271,6 +305,15 @@ export function CulpritDashboard({ user, onLogout, onShowRanking }: CulpritDashb
                     userId={user.id} 
                     onClose={() => setSelectedCase(null)}
                     onEvidenceSelected={handleEvidenceSelected}
+                />
+            )}
+
+            {/* 결과 확인 모달 */}
+            {viewResultCase && (
+                <CaseResultModal
+                    caseData={viewResultCase}
+                    userRole="culprit"
+                    onClose={() => setViewResultCase(null)}
                 />
             )}
         </div>
