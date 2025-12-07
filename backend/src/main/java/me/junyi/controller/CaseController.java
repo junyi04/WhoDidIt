@@ -233,6 +233,11 @@ public class CaseController {
         }
     }
 
+    @GetMapping("/result/{caseId}")
+    public CaseResultDto getCaseResult(@PathVariable Long caseId) {
+        return caseService.getCaseResult(caseId);
+    }
+
 
 
 

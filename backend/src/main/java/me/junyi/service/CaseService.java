@@ -680,6 +680,41 @@ public class CaseService {
         );
     }
 
+    public CaseResultDto getCaseResult(Long caseId) {
+        // CaseParticipation에서 해당 사건에 대한 참여 정보를 가져옵니다.
+        CaseParticipation participation = participationRepository.findByCaseId(caseId)
+                .orElseThrow(() -> new RuntimeException("사건을 찾을 수 없습니다."));
+
+        // 범인 닉네임을 AppUserRepository에서 조회
+        String culpritNickname = appUserRepository.findById(participation.getCriminalId())
+                .map(AppUser::getNickname)
+                .orElse("미지정");
+
+        // 탐정 닉네임을 AppUserRepository에서 조회
+        String detectiveNickname = appUserRepository.findById(participation.getDetectiveId())
+                .map(AppUser::getNickname)
+                .orElse("미지정");
+
+        // CaseInfo에서 사건 난이도 조회
+        CaseInfo caseInfo = caseInfoRepository.findById(participation.getCaseId())
+                .orElseThrow(() -> new RuntimeException("사건 정보를 찾을 수 없습니다."));
+
+        // 결과 정보, 추리 정보 등
+        return new CaseResultDto(
+                participation.getPartId(), // activeId
+                caseId, // caseId
+                caseInfo.getTitle(), // caseTitle
+                caseInfo.getContent(), // caseDescription
+                participation.getDetectiveGuessNickname(), // 탐정의 추리 닉네임
+                culpritNickname, // 범인 닉네임
+                participation.getIsSolved() ? "감사" : "부고", // 결과 (사건 해결 여부)
+                detectiveNickname, // 탐정 닉네임
+                caseInfo.getDifficulty() // 사건 난이도
+        );
+    }
+
+
+
 
 
 

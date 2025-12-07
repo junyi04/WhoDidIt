@@ -12,4 +12,5 @@ public interface CaseParticipationRepository extends CrudRepository<CaseParticip
     Optional<CaseParticipation> findByCaseId(Long caseId);
     List<CaseParticipation> findAllByCriminalId(Long criminalId);
     List<CaseParticipation> findAllByDetectiveId(Long detectiveId);
+
 }
