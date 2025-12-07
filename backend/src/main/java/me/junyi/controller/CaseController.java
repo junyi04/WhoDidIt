@@ -5,7 +5,9 @@ import me.junyi.domain.OriginalEvidence;
 import me.junyi.domain.SubmittedEvidence;
 import me.junyi.dto.*;
 import me.junyi.service.CaseService;
+import me.junyi.repository.CaseInfoRepository;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,9 +19,11 @@ import java.util.Map;
 public class CaseController {
 
     private final CaseService caseService;
+    private final CaseInfoRepository caseInfoRepository;
 
-    public CaseController(CaseService caseService) {
+    public CaseController(CaseService caseService, CaseInfoRepository caseInfoRepository) {
         this.caseService = caseService;
+        this.caseInfoRepository = caseInfoRepository;
     }
 
     // 1. 등록 상태 사건 목록
@@ -228,4 +232,9 @@ public class CaseController {
                     .body(Map.of("error", "추리 처리 중 오류: " + e.getMessage()));
         }
     }
+
+
+
+
+
 }
