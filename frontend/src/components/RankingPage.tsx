@@ -3,11 +3,11 @@ import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { ArrowLeft, Trophy, Medal, Award, TrendingUp, Search, Loader2 } from 'lucide-react';
+import { ArrowLeft, Trophy, Medal, Award, TrendingUp, Search, Loader2, Shield } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 
-const apiClient = axios.create({ baseURL: '/api', withCredentials: true });
+const apiClient = axios.create({ baseURL: '/api/ranking', withCredentials: true });
 
 interface RankingPageProps {
     onBack: () => void;
@@ -15,14 +15,21 @@ interface RankingPageProps {
 
 // --- 타입 정의 시작 ---
 
-// 1. RankingDto
+// 1. RankingDto (role 속성 제외)
 interface RankingDto {
-    userId: number; 
+    userId: number;
     nickname: string;
-    role: '의뢰인' | '범인' | '탐정';
     score: number;
     totalCases: number;
     successRate: number;
+    rank: number; // 순위 (백엔드에서 계산되어 전달)
+}
+
+interface RankingState {
+    detectives: RankingDto[];
+    culprits: RankingDto[];
+    clients: RankingDto[];
+    police: RankingDto[];
 }
 
 // 2. 프론트엔드에서 사용하는 랭킹 데이터 (DTO + rank)
@@ -52,7 +59,6 @@ const RankingTable = ({ data, roleColor }: { data: RankedUser[], roleColor: stri
             </div>
         ) : (
             data.map((item) => (
-                // item의 rank 속성은 RankedUser 타입 덕분에 안전하게 접근 가능
                 <Card
                     key={item.userId}
                     className={`p-4 hover:shadow-lg transition-shadow ${
@@ -90,18 +96,31 @@ const RankingTable = ({ data, roleColor }: { data: RankedUser[], roleColor: stri
 // --- RankingPage 메인 컴포넌트 ---
 
 export function RankingPage({ onBack }: RankingPageProps) {
-    // allRankings의 타입을 Dto 배열로 지정
-    const [allRankings, setAllRankings] = useState<RankingDto[]>([]); 
+    const [allRankings, setAllRankings] = useState<RankingState>({
+        detectives: [],
+        culprits: [],
+        clients: [],
+        police: []
+    });
     const [loading, setLoading] = useState(true);
 
     // 🚨 1. 전체 랭킹 조회 API 연동
     const fetchRankings = useCallback(async () => {
         setLoading(true);
         try {
-            // API 호출 시 응답 타입은 RankingDto[]
-            const response = await apiClient.get<RankingDto[]>('/ranking'); 
-            
-            setAllRankings(response.data);
+            const [detectives, culprits, clients, police] = await Promise.all([
+                apiClient.get<RankingDto[]>('/detectives'),
+                apiClient.get<RankingDto[]>('/culprits'),
+                apiClient.get<RankingDto[]>('/clients'),
+                apiClient.get<RankingDto[]>('/police')
+            ]);
+
+            setAllRankings({
+                detectives: detectives.data,
+                culprits: culprits.data,
+                clients: clients.data,
+                police: police.data,
+            });
         } catch (err: any) {
             toast.error("랭킹 정보를 불러오지 못했습니다.");
         } finally {
@@ -114,23 +133,19 @@ export function RankingPage({ onBack }: RankingPageProps) {
     }, [fetchRankings]);
 
     // 2. 역할별로 랭킹 분리 및 순위 계산 (프론트엔드에서 처리)
-    // 반환 타입을 RankedUser[]로 명확히 지정
-    const filterAndRank = (roleFilter: RankingDto['role']): RankedUser[] => {
-        return allRankings
-            .filter(item => item.role === roleFilter)
-            // .map()을 통해 rank 속성 추가. 결과는 RankedUser 타입의 배열이 됨
+    const filterAndRank = (roleFilter: keyof RankingState): RankedUser[] => {
+        return allRankings[roleFilter]
             .map((item, index) => ({
                 ...item,
                 rank: index + 1, // rank 속성 추가
-            })) as RankedUser[]; // 타입 단언을 통해 RankedUser[]임을 확정
+            })) as RankedUser[];
     };
 
-    const detectiveRankings = filterAndRank('탐정');
-    const culpritRankings = filterAndRank('범인');
-    const clientRankings = filterAndRank('의뢰인');
+    const detectiveRankings = filterAndRank('detectives');
+    const culpritRankings = filterAndRank('culprits');
+    const clientRankings = filterAndRank('clients');
+    const policeRankings = filterAndRank('police');
     
-    // UI 렌더링 부분은 그대로 유지
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 p-8">
             <div className="max-w-6xl mx-auto">
@@ -146,7 +161,7 @@ export function RankingPage({ onBack }: RankingPageProps) {
                     </Button>
                     <div>
                         <h1 className="text-white mb-2">명예의 전당</h1>
-                        <p className="text-blue-200">최고의 의뢰인, 범인, 탐정을 확인하세요</p>
+                        <p className="text-blue-200">최고의 의뢰인, 범인, 탐정, 경찰을 확인하세요</p>
                     </div>
                 </div>
 
@@ -157,18 +172,22 @@ export function RankingPage({ onBack }: RankingPageProps) {
                 ) : (
                     <Card className="p-6">
                         <Tabs defaultValue="detective" className="w-full">
-                            <TabsList className="grid w-full grid-cols-3 mb-6">
-                                <TabsTrigger value="detective" className="flex items-center gap-2">
+                            <TabsList className="flex w-full gap-4 mb-6"> {/* flex로 탭을 가로로 정렬 */}
+                                <TabsTrigger value="detective" className="flex-1 text-center py-2">
                                     <Search className="size-4" />
                                     탐정 랭킹
                                 </TabsTrigger>
-                                <TabsTrigger value="culprit" className="flex items-center gap-2">
+                                <TabsTrigger value="culprit" className="flex-1 text-center py-2">
                                     <Award className="size-4" />
                                     범인 랭킹
                                 </TabsTrigger>
-                                <TabsTrigger value="client" className="flex items-center gap-2">
+                                <TabsTrigger value="client" className="flex-1 text-center py-2">
                                     <Trophy className="size-4" />
                                     의뢰인 랭킹
+                                </TabsTrigger>
+                                <TabsTrigger value="police" className="flex-1 text-center py-2">
+                                    <Shield className="size-4" />
+                                    경찰 랭킹
                                 </TabsTrigger>
                             </TabsList>
 
@@ -177,7 +196,6 @@ export function RankingPage({ onBack }: RankingPageProps) {
                                     <h3 className="mb-2">탐정 순위</h3>
                                     <p className="text-sm text-muted-foreground">사건 해결 성공률과 총 해결 건수를 기반으로 한 순위입니다</p>
                                 </div>
-                                {/* RankedUser[] 타입이 전달되므로 안전 */}
                                 <RankingTable data={detectiveRankings} roleColor="border-purple-500" />
                             </TabsContent>
 
@@ -196,47 +214,16 @@ export function RankingPage({ onBack }: RankingPageProps) {
                                 </div>
                                 <RankingTable data={clientRankings} roleColor="border-blue-500" />
                             </TabsContent>
+
+                            <TabsContent value="police">
+                                <div className="mb-4">
+                                    <h3 className="mb-2">경찰 순위</h3>
+                                    <p className="text-sm text-muted-foreground">범인 추적 성공률과 총 추적 건수를 기반으로 한 순위입니다</p>
+                                </div>
+                                <RankingTable data={policeRankings} roleColor="border-green-500" />
+                            </TabsContent>
                         </Tabs>
                     </Card>
-                )}
-
-
-                {/* Statistics Cards */}
-                {detectiveRankings.length > 0 && culpritRankings.length > 0 && clientRankings.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-                        <Card className="p-6 bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-                            <div className="flex items-center justify-between mb-2">
-                                <h3>최고 탐정</h3>
-                                <Trophy className="size-6" />
-                            </div>
-                            <p className="text-3xl font-bold mb-1">{detectiveRankings[0]?.nickname || '-'}</p>
-                            <p className="text-purple-100 text-sm">
-                                성공률: {detectiveRankings[0]?.successRate.toFixed(1) || 0}%
-                            </p>
-                        </Card>
-
-                        <Card className="p-6 bg-gradient-to-br from-red-500 to-red-600 text-white">
-                            <div className="flex items-center justify-between mb-2">
-                                <h3>최강 범인</h3>
-                                <Award className="size-6" />
-                            </div>
-                            <p className="text-3xl font-bold mb-1">{culpritRankings[0]?.nickname || '-'}</p>
-                            <p className="text-red-100 text-sm">
-                                성공률: {culpritRankings[0]?.successRate.toFixed(1) || 0}%
-                            </p>
-                        </Card>
-
-                        <Card className="p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-                            <div className="flex items-center justify-between mb-2">
-                                <h3>신뢰 의뢰인</h3>
-                                <Medal className="size-6" />
-                            </div>
-                            <p className="text-3xl font-bold mb-1">{clientRankings[0]?.nickname || '-'}</p>
-                            <p className="text-blue-100 text-sm">
-                                성공률: {clientRankings[0]?.successRate.toFixed(1) || 0}%
-                            </p>
-                        </Card>
-                    </div>
                 )}
             </div>
         </div>

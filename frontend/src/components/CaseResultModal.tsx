@@ -17,15 +17,14 @@ interface CaseResultModalProps {
         detectiveNickname: string | null;
         difficulty: number;
     };
-    userRole: 'client' | 'detective';
+    userRole: 'client' | 'detective' | 'police' | 'culprit';  // police와 culprit 역할 추가
     onClose: () => void;
 }
 
 export function CaseResultModal({ caseData, userRole, onClose }: CaseResultModalProps) {
-    const isSuccess = caseData.result === '감사';
-    const isSolved = caseData.culpritGuess === caseData.actualCulprit;
+    const isSuccess = caseData.result === '감사'; // 사건 해결 여부
+    const isSolved = caseData.culpritGuess === caseData.actualCulprit; // 추리 결과 확인
 
-    // ⭐
     const isGuessed = caseData.culpritGuess !== null;
     const isCorrectGuess = isGuessed && caseData.culpritGuess === caseData.actualCulprit;
 
@@ -45,10 +44,8 @@ export function CaseResultModal({ caseData, userRole, onClose }: CaseResultModal
                         <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
                                 <h2 className="text-white">사건 결과</h2>
-                                {/* caseData 필드명 사용처 수정 */}
                                 <span className="text-yellow-500">{getDifficultyStars(caseData.difficulty)}</span>
                             </div>
-                            {/* caseData 필드명 사용처 수정 */}
                             <h3 className="text-white mb-1">{caseData.caseTitle}</h3>
                         </div>
                         <Button onClick={onClose} variant="ghost" size="sm" className="text-white hover:bg-white/20">
@@ -58,38 +55,29 @@ export function CaseResultModal({ caseData, userRole, onClose }: CaseResultModal
                 </div>
 
                 <div className="p-6 space-y-6 flex-grow overflow-y-auto">
-                    {/* Result Banner (isSuccess 변수 사용 유지) */}
                     <Card className={`p-6 ${isSuccess ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                         <div className="flex items-center gap-4">
                             {isSuccess ? (
-                                <>
-                                    <CheckCircle className="size-12 text-green-500 flex-shrink-0" />
-                                    <div className="flex-1">
-                                        <h3 className="text-green-900 mb-1">사건 해결 성공!</h3>
-                                        <p className="text-sm text-green-700">
-                                            탐정이 진짜 범인을 찾아냈습니다.
-                                        </p>
-                                    </div>
-                                </>
+                                <CheckCircle className="size-12 text-green-500 flex-shrink-0" />
                             ) : (
-                                <>
-                                    <XCircle className="size-12 text-red-500 flex-shrink-0" />
-                                    <div className="flex-1">
-                                        <h3 className="text-red-900 mb-1">사건 미해결</h3>
-                                        <p className="text-sm text-red-700">
-                                            범인이 탐정을 속이는데 성공했습니다.
-                                        </p>
-                                    </div>
-                                </>
+                                <XCircle className="size-12 text-red-500 flex-shrink-0" />
                             )}
+                            <div className="flex-1">
+                                <h3 className={isSuccess ? 'text-green-900' : 'text-red-900'}>
+                                    {isSuccess ? '사건 해결 성공!' : '사건 미해결'}
+                                </h3>
+                                <p className={isSuccess ? 'text-green-700' : 'text-red-700'}>
+                                    {isSuccess
+                                        ? '탐정이 진짜 범인을 찾아냈습니다.'
+                                        : '범인이 탐정을 속이는데 성공했습니다.'}
+                                </p>
+                            </div>
                         </div>
                     </Card>
 
-                    {/* Case Details */}
                     <div className="space-y-4">
                         <div>
                             <h3 className="mb-2">사건 개요</h3>
-                            {/* caseData 필드명 사용처 수정 */}
                             <p className="text-muted-foreground text-sm">{caseData.caseDescription}</p>
                         </div>
     
@@ -109,24 +97,21 @@ export function CaseResultModal({ caseData, userRole, onClose }: CaseResultModal
                                 <div className="text-sm text-muted-foreground mb-1">실제 범인</div>
                                 <div className="flex items-center gap-2">
                                     <Badge className="bg-slate-700 hover:bg-slate-800">
-                                        {/* caseData 필드명 사용처 수정 */}
                                         {caseData.actualCulprit || '???'}
                                     </Badge>
                                 </div>
                             </Card>
                         </div>
 
-                        {/* caseData 필드명 사용처 수정 */}
                         {caseData.detectiveNickname && (
                             <Card className="p-4 bg-slate-50">
                                 <div className="text-sm text-muted-foreground mb-1">담당 탐정</div>
-                                {/* caseData 필드명 사용처 수정 */}
                                 <div className="font-medium">{caseData.detectiveNickname}</div>
                             </Card>
                         )}
                     </div>
 
-                    {/* Action Messages (userRole 기반으로 분기) */}
+                    {/* 역할별 액션 메시지 분기 */}
                     {userRole === 'client' && (
                         <Card className={`p-6 ${isSuccess ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
                             <div className="flex items-start gap-4">
@@ -184,6 +169,78 @@ export function CaseResultModal({ caseData, userRole, onClose }: CaseResultModal
                                             <h4 className="mb-2">의뢰인의 부고</h4>
                                             <p className="text-sm text-muted-foreground mb-4">
                                                 사건을 해결하지 못해 의뢰인이 범인에게 보복을 당했습니다...
+                                            </p>
+                                            <Button onClick={handleSendMessage} variant="secondary">
+                                                <Flower2 className="size-4 mr-2" />
+                                                국화꽃 보내기
+                                            </Button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </Card>
+                    )}
+
+                    {userRole === 'police' && (
+                        <Card className={`p-6 ${isSuccess ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                            <div className="flex items-start gap-4">
+                                {isSuccess ? (
+                                    <>
+                                        <CheckCircle className="size-8 text-green-500 flex-shrink-0" />
+                                        <div className="flex-1">
+                                            <h4 className="mb-2">경찰의 역할</h4>
+                                            <p className="text-sm text-muted-foreground mb-4">
+                                                사건을 해결해주신 탐정에게 격려의 메시지를 보냅니다.
+                                            </p>
+                                            <Button onClick={handleSendMessage} className="bg-green-500 hover:bg-green-600">
+                                                <Send className="size-4 mr-2" />
+                                                격려 메시지 보내기
+                                            </Button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Flower2 className="size-8 text-gray-500 flex-shrink-0" />
+                                        <div className="flex-1">
+                                            <h4 className="mb-2">부고</h4>
+                                            <p className="text-sm text-muted-foreground mb-4">
+                                                사건이 해결되지 못해 의뢰인이 범인에게 보복을 당했습니다...
+                                            </p>
+                                            <Button onClick={handleSendMessage} variant="secondary">
+                                                <Flower2 className="size-4 mr-2" />
+                                                국화꽃 보내기
+                                            </Button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </Card>
+                    )}
+
+                    {userRole === 'culprit' && (
+                        <Card className={`p-6 ${isSuccess ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}`}>
+                            <div className="flex items-start gap-4">
+                                {isSuccess ? (
+                                    <>
+                                        <CheckCircle className="size-8 text-orange-500 flex-shrink-0" />
+                                        <div className="flex-1">
+                                            <h4 className="mb-2">범인 역할</h4>
+                                            <p className="text-sm text-muted-foreground mb-4">
+                                                범인이 성공적으로 조작을 마친 사건입니다. 다른 사건에서 다시 도전하세요!
+                                            </p>
+                                            <Button onClick={handleSendMessage} className="bg-orange-500 hover:bg-orange-600">
+                                                <Send className="size-4 mr-2" />
+                                                감사를 전합니다
+                                            </Button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Flower2 className="size-8 text-gray-500 flex-shrink-0" />
+                                        <div className="flex-1">
+                                            <h4 className="mb-2">부고</h4>
+                                            <p className="text-sm text-muted-foreground mb-4">
+                                                범인이 탐정을 속였으나 실패한 사건입니다. 부고를 전합니다...
                                             </p>
                                             <Button onClick={handleSendMessage} variant="secondary">
                                                 <Flower2 className="size-4 mr-2" />
